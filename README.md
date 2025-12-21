@@ -1,3 +1,7 @@
+# This project is now deprecated.
+
+Please note that no further bug fixes will be provided. The latest version includes a workaround for Gradle 9 build compatibility issues to assist with migrating to other libraries; however, we cannot guarantee that it will resolve all issues in every project environment.
+
 # License List Plugin
 
 [![jmatsu](https://circleci.com/gh/jmatsu/license-list-plugin.svg?style=svg)](https://circleci.com/gh/jmatsu/license-list-plugin) ![master](https://github.com/jmatsu/license-list-plugin/workflows/Run%20build%20and%20test/badge.svg?branch=master)
