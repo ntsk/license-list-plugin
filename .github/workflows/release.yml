@@ -93,8 +93,8 @@ jobs:
         run: |
           ./gradlew ':license-list-schema:publishSchemaPublicationToMavenRepository'
         env:
-          ORG_GRADLE_PROJECT_nexusUsername: jmatsu
-          ORG_GRADLE_PROJECT_nexusPassword: ${{ secrets.NEXUS_PASSWORD }}
+          ORG_GRADLE_PROJECT_nexusUsername: ${{ secrets.CENTRAL_SONATYPE_USERNAME }}
+          ORG_GRADLE_PROJECT_nexusPassword: ${{ secrets.CENTRAL_SONATYPE_PASSWORD }}
           ORG_GRADLE_PROJECT_signingRequired: true
           ORG_GRADLE_PROJECT_signingKey: ${{ secrets.GPG_SECRET_KEY }}
           ORG_GRADLE_PROJECT_signingPassword: ${{ secrets.GPG_PASSPHRASE }}
