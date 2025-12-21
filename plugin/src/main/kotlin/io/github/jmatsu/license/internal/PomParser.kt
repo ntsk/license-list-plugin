@@ -7,6 +7,7 @@ import org.w3c.dom.Node
 import org.w3c.dom.NodeList
 import java.io.File
 import javax.xml.parsers.DocumentBuilderFactory
+import kotlin.collections.mapNotNull
 
 class PomParser(
     private val file: File,
@@ -22,21 +23,25 @@ class PomParser(
                 normalize()
             }
 
-        val associatedUrl: String? = pomRoot.getOptionalAttribute("url") ?: pomRoot.getOptionalAttribute("scm.url")
+        val associatedUrl: String? = pomRoot.getChildByTagName("url")?.getContentAsText() ?: pomRoot.getChildByTagName("scm")?.getChildByTagName("url")?.getContentAsText()
 
         val displayNameCandidates =
             listOfNotNull(
-                pomRoot.getOptionalAttribute("name"),
-                pomRoot.getOptionalAttribute("description"),
-                pomRoot.getOptionalAttribute("artifactId"),
+                pomRoot.getChildByTagName("name")?.getContentAsText(),
+                pomRoot.getChildByTagName("description")?.getContentAsText(),
+                pomRoot.getChildByTagName("artifactId")?.getContentAsText(),
             )
 
         val licenses: List<LicenseSeed> =
             pomRoot
-                .getChildElementsOfTag("licenses")
+                .getChildByTagName("licenses")
+                ?.childNodes
+                ?.asList()
+                .orEmpty()
+                .mapNotNull { it.asElement() }
                 .map {
-                    val name = it.getOptionalAttribute("name")
-                    val url = it.getOptionalAttribute("url")
+                    val name = it.getChildByTagName("name")?.getContentAsText()
+                    val url = it.getChildByTagName("url")?.getContentAsText()
                     // Is distribution node required? :thinking_face:
                     LicenseSeed(
                         name = name,
@@ -46,9 +51,13 @@ class PomParser(
 
         val copyrightHolders =
             pomRoot
-                .getChildElementsOfTag("developers")
+                .getChildByTagName("developers")
+                ?.childNodes
+                ?.asList()
+                .orEmpty()
+                .mapNotNull { it.asElement() }
                 .mapNotNull {
-                    it.getOptionalAttribute("name")
+                    it.getChildByTagName("name")?.getContentAsText()
                 }
 
         require(displayNameCandidates.isNotEmpty())
@@ -61,33 +70,35 @@ class PomParser(
         )
     }
 
-    private fun Element.getOptionalAttribute(
-        name: String,
-        allowBlank: Boolean = false,
-    ): String? =
-        if (hasAttribute(name)) {
-            getAttribute(name).takeIf { allowBlank || it.isNotBlank() }
-        } else {
-            null
-        }
-
     private fun NodeList.asList(): List<Node> =
         (0 until length).map { idx ->
             item(idx)
         }
 
-    private fun Element.getChildElementsOfTag(name: String): List<Element> {
-        val nodes = getElementsByTagName(name)
+    private fun Node.getChildrenByTagName(name: String): List<Node> = childNodes.asList().filter { it.nodeName == name }
 
-        return nodes
-            .asList()
-            .flatMap { it.childNodes.asList() }
-            .mapNotNull {
-                if (it.nodeType == Node.ELEMENT_NODE) {
-                    it as Element
-                } else {
-                    null
-                }
-            }
+    private fun Node.getChildByTagName(name: String): Node? {
+        val children = getChildrenByTagName(name)
+
+        require(children.size <= 1) {
+            "${children.size} $name nodes are found"
+        }
+
+        return children.firstOrNull()
+    }
+
+    private fun Node.asElement(): Element? =
+        if (nodeType == Node.ELEMENT_NODE) {
+            this as Element
+        } else {
+            null
+        }
+
+    private fun Node.getContentAsText(allowBlank: Boolean = false): String? {
+        if (nodeType != Node.ELEMENT_NODE) {
+            return null
+        }
+
+        return textContent.takeIf { allowBlank || it.isNotBlank() }
     }
 }
