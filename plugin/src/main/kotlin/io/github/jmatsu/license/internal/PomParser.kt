@@ -1,34 +1,47 @@
 package io.github.jmatsu.license.internal
 
-import groovy.util.XmlSlurper
-import groovy.util.slurpersupport.GPathResult
 import io.github.jmatsu.license.model.LicenseSeed
 import io.github.jmatsu.license.model.ResolvedPomFile
+import org.w3c.dom.Element
+import org.w3c.dom.Node
+import org.w3c.dom.NodeList
 import java.io.File
+import javax.xml.parsers.DocumentBuilderFactory
+import kotlin.collections.mapNotNull
 
 class PomParser(
     private val file: File,
 ) {
     fun parse(): ResolvedPomFile {
-        val pomRoot = XmlSlurper(false, false).parse(file)
-
-        val associatedUrl: String? = pomRoot["url"]?.trimText() ?: pomRoot["scm.url"]?.trimText()
-
-        val displayNameCandidates =
-            arrayOf(
-                pomRoot["name"],
-                pomRoot["description"],
-                pomRoot["artifactId"],
-            ).mapNotNull {
-                it?.trimText()
+        val factory =
+            DocumentBuilderFactory.newInstance().apply {
+                isValidating = false
+                isNamespaceAware = false
+            }
+        val pomRoot =
+            factory.newDocumentBuilder().parse(file).documentElement.apply {
+                normalize()
             }
 
+        val associatedUrl: String? = pomRoot.getChildByTagName("url")?.getContentAsText() ?: pomRoot.getChildByTagName("scm")?.getChildByTagName("url")?.getContentAsText()
+
+        val displayNameCandidates =
+            listOfNotNull(
+                pomRoot.getChildByTagName("name")?.getContentAsText(),
+                pomRoot.getChildByTagName("description")?.getContentAsText(),
+                pomRoot.getChildByTagName("artifactId")?.getContentAsText(),
+            )
+
         val licenses: List<LicenseSeed> =
-            pomRoot["licenses"]
-                .childPaths()
+            pomRoot
+                .getChildByTagName("licenses")
+                ?.childNodes
+                ?.asList()
+                .orEmpty()
+                .mapNotNull { it.asElement() }
                 .map {
-                    val name = it["name"]?.trimText()
-                    val url = it["url"]?.trimText()
+                    val name = it.getChildByTagName("name")?.getContentAsText()
+                    val url = it.getChildByTagName("url")?.getContentAsText()
                     // Is distribution node required? :thinking_face:
                     LicenseSeed(
                         name = name,
@@ -37,10 +50,14 @@ class PomParser(
                 }
 
         val copyrightHolders =
-            pomRoot["developers"]
-                .childPaths()
+            pomRoot
+                .getChildByTagName("developers")
+                ?.childNodes
+                ?.asList()
+                .orEmpty()
+                .mapNotNull { it.asElement() }
                 .mapNotNull {
-                    it["name"]?.trimText()
+                    it.getChildByTagName("name")?.getContentAsText()
                 }
 
         require(displayNameCandidates.isNotEmpty())
@@ -53,12 +70,35 @@ class PomParser(
         )
     }
 
-    private operator fun GPathResult?.get(path: String): GPathResult? =
-        path.split(".").fold(this) { acc, name ->
-            acc?.getProperty(name) as? GPathResult
+    private fun NodeList.asList(): List<Node> =
+        (0 until length).map { idx ->
+            item(idx)
         }
 
-    private fun GPathResult.trimText(): String? = this.text()?.takeIf { it.isNotBlank() }
+    private fun Node.getChildrenByTagName(name: String): List<Node> = childNodes.asList().filter { it.nodeName == name }
 
-    private fun GPathResult?.childPaths(): List<GPathResult> = this?.children()?.map { it as GPathResult }.orEmpty()
+    private fun Node.getChildByTagName(name: String): Node? {
+        val children = getChildrenByTagName(name)
+
+        require(children.size <= 1) {
+            "${children.size} $name nodes are found"
+        }
+
+        return children.firstOrNull()
+    }
+
+    private fun Node.asElement(): Element? =
+        if (nodeType == Node.ELEMENT_NODE) {
+            this as Element
+        } else {
+            null
+        }
+
+    private fun Node.getContentAsText(allowBlank: Boolean = false): String? {
+        if (nodeType != Node.ELEMENT_NODE) {
+            return null
+        }
+
+        return textContent.takeIf { allowBlank || it.isNotBlank() }
+    }
 }
