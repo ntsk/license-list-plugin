@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-./gradlew clean initLicenseList -Poverwrite=true --rerun-tasks
+./gradlew clean initLicenseList -Poverwrite=true --rerun-tasks --info
 
 if ! [[ -z "$(git diff --name-only -- app)" ]]; then
     echo "diff has been generated. assemble logic might be changed and it would be a breaking change."
