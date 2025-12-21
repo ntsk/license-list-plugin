@@ -1,7 +1,9 @@
 package io.github.jmatsu.license.internal
 
 import io.github.jmatsu.license.LicenseListPlugin
+import io.github.jmatsu.license.ext.capitalized
 import io.github.jmatsu.license.ext.collectToMap
+import io.github.jmatsu.license.ext.decapitalized
 import io.github.jmatsu.license.ext.lenientConfiguration
 import io.github.jmatsu.license.model.LOCAL_FILE_GROUP
 import io.github.jmatsu.license.model.LicenseSeed
@@ -12,6 +14,7 @@ import io.github.jmatsu.license.model.ResolvedModuleIdentifier
 import io.github.jmatsu.license.model.VersionString
 import org.gradle.api.Project
 import org.gradle.api.artifacts.Configuration
+import org.gradle.api.artifacts.FileCollectionDependency
 import org.gradle.api.artifacts.SelfResolvingDependency
 import org.gradle.api.artifacts.component.ComponentIdentifier
 import org.gradle.api.artifacts.result.ResolvedArtifactResult
@@ -57,13 +60,13 @@ class ArtifactManagement(
         variantScope: ResolveScope.Variant,
         additionalScopes: Set<ResolveScope.Addition>,
     ): SortedMap<ResolveScope, List<ResolvedArtifact>> {
-        val variantConfigurations = project.allConfigurations(variantScope)
+        val variantConfiguration = project.createAggregatedConfiguration(variantScope)
 
         val scopedConfigurations =
             (
-                listOf(variantScope to variantConfigurations) +
+                listOf(variantScope to variantConfiguration) +
                     additionalScopes.map { scope ->
-                        scope to project.allConfigurations(variantScope, additionalScope = scope)
+                        scope to project.createAggregatedConfiguration(variantScope, additionalScope = scope)
                     }
             ).toMap()
 
@@ -72,16 +75,17 @@ class ArtifactManagement(
         val localFileMap: MutableMap<ResolveScope, List<File>> = hashMapOf()
 
         val scopedModules =
-            scopedConfigurations.mapValues { (scope, configurations) ->
-                configurations
-                    .flatMap { configuration ->
+            scopedConfigurations.mapValues { (scope, configuration) ->
+                configuration
+                    .let {
                         runCatching {
                             localFileMap.putIfAbsent(scope, emptyList())
+
                             localFileMap[scope] = localFileMap.getValue(scope) +
                                 configuration.allDependencies
-                                    .filterIsInstance<SelfResolvingDependency>()
+                                    .filterIsInstance<FileCollectionDependency>()
                                     .flatMap {
-                                        it.resolve()
+                                        it.files
                                     }.filter { it.name.endsWith(".jar") || it.name.endsWith(".aar") }
                         }.onFailure {
                             LicenseListPlugin.logger?.error("could not resolve local files in ${scope.name}", it)
@@ -217,14 +221,14 @@ class ArtifactManagement(
      *
      * @return all configurations that we should resolve but some of them might be *ancestor* configuration.
      */
-    private fun Project.allConfigurations(
+    private fun Project.createAggregatedConfiguration(
         variantScope: ResolveScope.Variant,
         additionalScope: ResolveScope? = null,
-    ): List<Configuration> {
+    ): Configuration {
         val suffixes =
             if (additionalScope != null) {
                 configurationNames.map { name ->
-                    additionalScope.name.decapitalize() + name.capitalize()
+                    additionalScope.name.decapitalized() + name.capitalized()
                 }
             } else {
                 configurationNames
@@ -233,20 +237,26 @@ class ArtifactManagement(
         val targetConfigurationNames =
             suffixes +
                 suffixes.map { suffix ->
-                    variantScope.name.decapitalize() + suffix.capitalize()
+                    variantScope.name.decapitalized() + suffix.capitalized()
                 }
 
-        return project.configurations
-            .flatMap {
-                it.all
-            }.distinctBy { it.name }
-            .filter { configuration ->
-                (configuration.name in targetConfigurationNames).also { isTarget ->
-                    if (isTarget) {
-                        project.logger.info("Configuration(name = ${configuration.name}) will be search")
+        val configurations =
+            project.configurations
+                .toSet()
+                .distinctBy { it.name }
+                .filter { configuration ->
+                    (configuration.name in targetConfigurationNames).also { isTarget ->
+                        if (isTarget) {
+                            project.logger.info("Configuration(name = ${configuration.name}) will be search")
+                        }
                     }
                 }
-            }
+
+        return project.configurations.create("licenseList${variantScope.name.capitalized()}${additionalScope?.name?.capitalized() ?: ""}") {
+            setExtendsFrom(configurations)
+            isTransitive = true
+            isCanBeResolved = true
+        }
     }
 
     /**
