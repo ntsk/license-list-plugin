@@ -2,6 +2,9 @@
 
 Please note that no further bug fixes will be provided. The latest version includes a workaround for Gradle 9 build compatibility issues to assist with migrating to other libraries; however, we cannot guarantee that it will resolve all issues in every project environment.
 
+For users who use Gradle 9 in your projects: Use 0.9.0
+For users who use Gradle 8 or lower in your projects: Use 0.8.1
+
 # License List Plugin
 
 [![jmatsu](https://circleci.com/gh/jmatsu/license-list-plugin.svg?style=svg)](https://circleci.com/gh/jmatsu/license-list-plugin) ![master](https://github.com/jmatsu/license-list-plugin/workflows/Run%20build%20and%20test/badge.svg?branch=master)
