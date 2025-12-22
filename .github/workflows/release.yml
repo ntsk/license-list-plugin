@@ -101,6 +101,8 @@ jobs:
         with:
           path: ~/.m2/repository
           if-no-files-found: error
+      # Download a zip,
+      #
   plugin-release:
     if: contains(needs.params.outputs.artifacts, 'plugin')
     runs-on: ubuntu-latest
