@@ -91,12 +91,18 @@ jobs:
       - run: echo '${{ needs.params.outputs.version }}' > VERSION
       - name: Publish artifacts
         run: |
-          ./gradlew ':license-list-schema:publishSchemaPublicationToMavenRepository'
+          ./gradlew ':license-list-schema:publishSchemaPublicationToMavenLocal'
         env:
           ORG_GRADLE_PROJECT_signingRequired: true
           ORG_GRADLE_PROJECT_signingKey: ${{ secrets.GPG_SECRET_KEY }}
           ORG_GRADLE_PROJECT_signingPassword: ${{ secrets.GPG_PASSPHRASE }}
           ORG_GRADLE_PROJECT_tokenForCentral: ${{ secrets.CENTRAL_SONATYPE_TOKEN }}
+      - uses: actions/upload-artifact@v6
+        with:
+          path: ~/.m2/repository
+          if-no-files-found: error
+      # Download a zip,
+      #
   plugin-release:
     if: contains(needs.params.outputs.artifacts, 'plugin')
     runs-on: ubuntu-latest
