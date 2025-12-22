@@ -80,7 +80,7 @@ gradlePlugin {
         implementationClass = "io.github.jmatsu.license.LicenseListPlugin"
         displayName = Definition.pluginDisplayName
         description = Definition.pluginDescription
-        tags = listOf("android", "gradle")
+        tags = listOf("android")
     }
 }
 

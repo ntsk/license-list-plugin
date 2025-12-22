@@ -30,16 +30,10 @@ ext {
     }
 
     set("isRelease", isRelease)
-    set("repoUrl", if (isRelease) "https://oss.sonatype.org/service/local/staging/deploy/maven2/" else "https://oss.sonatype.org/content/repositories/snapshots/")
-    set("repoUsername", findProperty("nexusUsername"))
-    set("repoPassword", findProperty("nexusPassword"))
 }
 
 val isRelease: Boolean by project.ext
 val releaseVersion: String by project.ext
-val repoUrl: String by project.ext
-val repoUsername: String? by project.ext
-val repoPassword: String? by project.ext
 
 configurations.configureEach {
     resolutionStrategy {
@@ -72,11 +66,15 @@ java {
 publishing {
     repositories {
         maven {
-            setUrl(repoUrl)
+            setUrl("https://central.sonatype.com/api/v1/publisher/deployments/download/")
 
-            credentials(PasswordCredentials::class) {
-                username = repoUsername
-                password = repoPassword
+            credentials(HttpHeaderCredentials::class) {
+                name = "Authorization"
+                value = "Bearer ${findProperty("tokenForCentral")}"
+            }
+
+            authentication {
+                create<HttpHeaderAuthentication>("header")
             }
         }
     }

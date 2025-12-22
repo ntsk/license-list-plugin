@@ -35,9 +35,9 @@ jobs:
             release_mode='true'
           fi
 
-          echo "::set-output name=artifacts::${artifacts}"
-          echo "::set-output name=checkout-ref::${checkout_ref}"
-          echo "::set-output name=release-mode::${release_mode}"
+          echo "artifacts=${artifacts}" >> $GITHUB_OUTPUT
+          echo "checkout-ref=${checkout_ref}" >> $GITHUB_OUTPUT
+          echo "release-mode=${release_mode}" >> $GITHUB_OUTPUT
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           ref: ${{ steps.parse.outputs.checkout-ref }}
@@ -53,7 +53,7 @@ jobs:
             version="${GITHUB_REF#refs/tags/}"
           fi
 
-          echo "::set-output name=result::${version}"
+          echo "result=${version}" >> $GITHUB_OUTPUT
 
           if [ ! "$(cat VERSION)" = "${version}" ]; then
             echo 'version mismatch'
@@ -93,30 +93,10 @@ jobs:
         run: |
           ./gradlew ':license-list-schema:publishSchemaPublicationToMavenRepository'
         env:
-          ORG_GRADLE_PROJECT_nexusUsername: ${{ secrets.CENTRAL_SONATYPE_USERNAME }}
-          ORG_GRADLE_PROJECT_nexusPassword: ${{ secrets.CENTRAL_SONATYPE_PASSWORD }}
           ORG_GRADLE_PROJECT_signingRequired: true
           ORG_GRADLE_PROJECT_signingKey: ${{ secrets.GPG_SECRET_KEY }}
           ORG_GRADLE_PROJECT_signingPassword: ${{ secrets.GPG_PASSPHRASE }}
-      - run: sleep 10
-      - name: Download startship
-        run: |
-         mkdir -p ~/.gradle
-         touch ~/.gradle/gradle.properties
-        
-         curl -sSfL \
-           --url 'https://github.com/saket/startship/releases/download/1.1.1/startship.zip' \
-           -o startship.zip && \
-           unzip startship.zip
-
-         echo "$PWD/$(find startship -type d -name "bin")" >> $GITHUB_PATH
-# repository id must be chosen.
-#       - name: Close and promote the schema
-#         run: |
-#           startship release \
-#             -c "io.github.jmatsu:license-list-schema:$(cat VERSION)" \
-#             -u jmatsu \
-#             -p ${{ secrets.NEXUS_PASSWORD }}
+          ORG_GRADLE_PROJECT_tokenForCentral: ${{ secrets.CENTRAL_SONATYPE_TOKEN }}
   plugin-release:
     if: contains(needs.params.outputs.artifacts, 'plugin')
     runs-on: ubuntu-latest
