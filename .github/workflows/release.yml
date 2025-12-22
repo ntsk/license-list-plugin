@@ -35,9 +35,9 @@ jobs:
             release_mode='true'
           fi
 
-          echo "::set-output name=artifacts::${artifacts}"
-          echo "::set-output name=checkout-ref::${checkout_ref}"
-          echo "::set-output name=release-mode::${release_mode}"
+          echo "artifacts=${artifacts}" >> $GITHUB_OUTPUT
+          echo "checkout-ref=${checkout_ref}" >> $GITHUB_OUTPUT
+          echo "release-mode=${release_mode}" >> $GITHUB_OUTPUT
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           ref: ${{ steps.parse.outputs.checkout-ref }}
@@ -53,7 +53,7 @@ jobs:
             version="${GITHUB_REF#refs/tags/}"
           fi
 
-          echo "::set-output name=result::${version}"
+          echo "result=${version}" >> $GITHUB_OUTPUT
 
           if [ ! "$(cat VERSION)" = "${version}" ]; then
             echo 'version mismatch'
