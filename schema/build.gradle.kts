@@ -66,7 +66,6 @@ java {
 publishing {
     repositories {
         maven {
-            name = "central"
             setUrl("https://central.sonatype.com/api/v1/publisher/deployments/download/")
 
             credentials(HttpHeaderCredentials::class) {
